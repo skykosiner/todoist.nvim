@@ -1,0 +1,8 @@
+{
+    "workspace.library": [
+        "/home/sky/.local/share/nvim/lazy/neodev.nvim/types/nightly",
+        "/usr/local/share/nvim/runtime/lua",
+        "/home/sky/personal/todoist.nvim/lua",
+        "${3rd}/luv/library"
+    ]
+}
