@@ -96,4 +96,24 @@ function api.complete_task(api_key, todo_name)
   end
 end
 
+---@param api_key string
+---@param project_id number
+---@return project
+function api.get_project_by_id(api_key, project_id)
+  local projects = api.get_projects(api_key)
+
+  for _, project in ipairs(projects) do
+    if project.id == project_id then
+      return project
+    end
+  end
+end
+
+---@param api_key string
+---@param todo_name string
+---@param project_id? number
+---@param due_date? string
+function api.create_task(api_key, todo_name, project_id, due_date)
+end
+
 return api

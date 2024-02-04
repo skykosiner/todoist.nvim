@@ -13,7 +13,8 @@ function M.create_floating_window_todos(api_key, tasks)
   vim.g.api_key = api_key
 
   for _, todo in ipairs(tasks) do
-    vim.api.nvim_buf_set_lines(buf, lines, -1, true, { "☐ " .. todo.content })
+    local todo_porject = api.get_project_by_id(api_key, todo.project_id)
+    vim.api.nvim_buf_set_lines(buf, lines, -1, true, { "☐ " .. todo.content .. " - " .. todo_porject.name })
     lines = lines + 1
     lineNum = lineNum + 1
   end
@@ -31,6 +32,7 @@ function M.create_floating_window_todos(api_key, tasks)
   vim.opt_local.filetype = "markdown"
   vim.opt_local.number = false
   vim.opt_local.relativenumber = false
+  vim.opt_local.modifiable = false
 
   -- TODO: move cursor to the second column to avoid the checkbox
 
