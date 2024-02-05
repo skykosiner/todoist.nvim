@@ -1,4 +1,7 @@
-# todoist.nvim
+# Todoist.nvim
+There are quite a few Todoist plugins for Neovim but none of them seemed to
+work well for me, so I built this one my self. It's still a work in progress
+and doesn't have the best code. Feel free to open a pr :)
 
 ## Installation
 ### Lazy
