@@ -26,9 +26,9 @@ end
 
 local new_todoist = Todoist:new()
 
---@param self Todoist
---@param config TodoistConfig
---@return Todoist
+---@param self Todoist
+---@param config TodoistConfig
+---@return Todoist
 function Todoist.setup(self, config)
   if self ~= new_todoist then
     self = new_todoist
@@ -39,13 +39,19 @@ function Todoist.setup(self, config)
   return self
 end
 
---@param self Todoist
+---@param self Todoist
 function Todoist.today(self)
   local todos = api.get_todays_todo(self.config.api_key)
-  buffer.create_floating_window_todos(self.config.api_key, todos)
+  buffer.create_floating_window_todos(self.config.api_key, todos, false)
 end
 
---@param self Todoist
+---@param self Todoist
+function Todoist.view_project(self)
+  local todos = api.view_porject(self.config.api_key)
+  buffer.create_floating_window_todos(self.config.api_key, todos, true)
+end
+
+---@param self Todoist
 function Todoist.create_task(self)
   api.create_task(self.config.api_key)
 end

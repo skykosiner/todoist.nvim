@@ -1,6 +1,12 @@
 local Job = require "plenary.job"
 local utils = require "todoist.utils"
+--[[ local curl = require "plenary.curl"
 
+curl.get("https://api.todoist.com/rest/v2/projects", {
+  headers = {
+    Authorization = "Bearer " .. api_key
+  },
+}) ]]
 ---@class due_date
 ---@field date string
 ---@field is_recurring boolean
@@ -18,6 +24,14 @@ local utils = require "todoist.utils"
 ---@field id number
 ---@field name string
 
+---@class api
+---@field base_url string
+---@field get_projects fun(api_key: string): project[]
+---@field get_active_todos fun(api_key: string): todo[]
+---@field get_todays_todo fun(api_key: string): todo[]
+---@field complete_task fun(api_key: string, todo_name: string)
+---@field get_project_by_id fun(api_key: string, project_id: number): project | nil
+---@field create_task fun(api_key: string)
 local api = {
   base_url = "https://api.todoist.com/rest/v2"
 }
@@ -28,7 +42,7 @@ function api.get_projects(api_key)
   local projects = Job:new({
     command = "curl",
     args = { "-X", "GET", api.base_url .. "/projects", "-H", "Authorization: Bearer " .. api_key },
-    on_exit = function(j, return_val)
+    on_exit = function(j, _)
       return j:result()
     end
   }):sync()
@@ -59,7 +73,7 @@ function api.get_todays_todo(api_key)
   local projects = Job:new({
     command = "curl",
     args = { "-X", "GET", api.base_url .. "/tasks", "-H", "Authorization: Bearer " .. api_key },
-    on_exit = function(j, return_val)
+    on_exit = function(j, _)
       return j:result()
     end
   }):sync()
@@ -101,7 +115,7 @@ end
 
 ---@param api_key string
 ---@param project_id number
----@return project
+---@return project | nil
 function api.get_project_by_id(api_key, project_id)
   local projects = api.get_projects(api_key)
 
@@ -110,6 +124,8 @@ function api.get_project_by_id(api_key, project_id)
       return project
     end
   end
+
+  return nil
 end
 
 ---@param api_key string
@@ -138,6 +154,30 @@ function api.create_task(api_key)
     args = { "-X", "POST", api.base_url .. "/tasks", "-H", "Authorization : Bearer " .. api_key, "-d",
       "content=" .. new_todo, "-d", "project_id=" .. project_to_add.id, "-d", "due_string=" .. due_date },
   }):sync()
+end
+
+---@param api_key string
+---@return todo[]
+function api.view_porject(api_key)
+  local return_todo = {}
+  local projects = api.get_projects(api_key)
+  local project_names = {}
+
+  for idx, project in ipairs(projects) do
+    table.insert(project_names, idx .. ". " .. project.name)
+  end
+
+  local project_selcected = tonumber(vim.fn.inputlist(project_names))
+  local project_to_view = projects[project_selcected]
+  local todos = api.get_active_todos(api_key)
+
+  for _, todo in ipairs(todos) do
+    if todo.project_id == project_to_view.id then
+      table.insert(return_todo, todo)
+    end
+  end
+
+  return return_todo
 end
 
 return api

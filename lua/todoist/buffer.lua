@@ -1,11 +1,15 @@
 local api = require "todoist.todoist-api"
+
+---@class buffer
+---@field create_floating_window_todos fun(api_key: string, tasks: todo[], project_view: boolean)
 local M = {}
 
 ---@param api_key string
 ---@param tasks todo[]
-function M.create_floating_window_todos(api_key, tasks)
-  local width = 90
+---@param project_view boolean
+function M.create_floating_window_todos(api_key, tasks, project_view)
   local height = 20
+  local width = 90
   local buf = vim.api.nvim_create_buf(false, true)
   local lines = 0
   local lineNum = 1
@@ -14,7 +18,11 @@ function M.create_floating_window_todos(api_key, tasks)
 
   for _, todo in ipairs(tasks) do
     local todo_porject = api.get_project_by_id(api_key, todo.project_id)
-    vim.api.nvim_buf_set_lines(buf, lines, -1, true, { "☐ " .. todo.content .. " - " .. todo_porject.name })
+    if project_view then
+      vim.api.nvim_buf_set_lines(buf, lines, -1, true, { "☐ " .. todo.content })
+    else
+      vim.api.nvim_buf_set_lines(buf, lines, -1, true, { "☐ " .. todo.content .. " - " .. todo_porject.name })
+    end
     lines = lines + 1
     lineNum = lineNum + 1
   end

@@ -32,8 +32,9 @@ floating buffer in the center of your screen.
 
 You can press enter, and it will mark a task as complete. It will not refresh
 the buffer after you complete a task of right now.
+
 ```lua
-vim.keymap.set("n", "<leader>td", function
+vim.keymap.set("n", "<leader>td", function()
     -- the todoist function used here is the same varible defined in the setup
     todoist:today()
 end)
@@ -46,8 +47,40 @@ project you want). Then you'll be promoted if you want to add a due date or
 not. If you pick no the task will just be added, but if you pick yes then you
 just enter your due date in natural language like you would inside the todoist
 app itself.
+
 ```lua
-vim.keymap.set("n", "<leader>tn", function
+vim.keymap.set("n", "<leader>tn", function()
     todoist:create_task()
 end)
+```
+
+## More non-standard options
+### Getting to-do's
+If you want to get a table of today's to-do's and want to handle the table your
+self then you can call the api function to get it.
+
+```lua
+require("todoist.todoist-api").get_todays_todos("your_api_key")
+-- This function reutrns an array of the class todo
+
+---@class todo
+---@field id number
+---@field content string
+---@field is_completed boolean
+---@field due due_date
+---@field parent_id string
+---@field priority string
+---@field project_id number
+```
+
+You can also get the exact same result but all to-do's that are not completed.
+```lua
+require("todoist.todoist-api").get_active_todos("your_api_key")
+-- This function returns the exact same array of the class todo as the last function
+```
+
+### Complete a to-do
+```lua
+require("todoist.todoist-api").complete_task("your_api_key", "name_of_todo_to_complete")
+-- This function doesn't return anythig
 ```
