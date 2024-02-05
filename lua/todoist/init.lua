@@ -6,6 +6,9 @@ local buffer = require "todoist.buffer"
 
 ---@class Todoist
 ---@field config TodoistConfig
+---@field setup fun(self: Todoist, config: TodoistConfig)
+---@field today fun(self: Todoist)
+---@field create_task fun(self: Todoist)
 local Todoist = {}
 
 Todoist.__index = Todoist
@@ -24,7 +27,7 @@ end
 local new_todoist = Todoist:new()
 
 --@param self Todoist
---@param api_key string
+--@param config TodoistConfig
 --@return Todoist
 function Todoist.setup(self, config)
   if self ~= new_todoist then
