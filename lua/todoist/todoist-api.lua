@@ -1,4 +1,5 @@
 local Job = require "plenary.job"
+local utils = require "todoist.utils"
 
 ---@class due_date
 ---@field date string
@@ -36,7 +37,7 @@ function api.get_projects(api_key)
 end
 
 ---@param api_key string
----@returns todo[]
+---@return todo[]
 function api.get_active_todos(api_key)
   local projects = Job:new({
     command = "curl",
@@ -84,6 +85,8 @@ end
 ---@param api_key string
 ---@param todo_name string
 function api.complete_task(api_key, todo_name)
+  todo_name = utils.get_todo_to_complete(todo_name)
+
   local todos = api.get_active_todos(api_key)
   for _, todo in ipairs(todos) do
     if todo.content == todo_name then
