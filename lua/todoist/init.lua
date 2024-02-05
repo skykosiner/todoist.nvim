@@ -42,4 +42,9 @@ function Todoist.today(self)
   buffer.create_floating_window_todos(self.config.api_key, todos)
 end
 
+--@param self Todoist
+function Todoist.create_task(self)
+  api.create_task(self.config.api_key)
+end
+
 return new_todoist

@@ -1,14 +1,14 @@
 local Job = require "plenary.job"
 
----@class due_table
----@param date string
----@param is_recurring boolean
+---@class due_date
+---@field date string
+---@field is_recurring boolean
 
 ---@class todo
 ---@field id number
 ---@field content string
 ---@field is_completed boolean
----@field due due_table
+---@field due due_date
 ---@field parent_id string
 ---@field priority string
 ---@field project_id number
@@ -22,7 +22,7 @@ local api = {
 }
 
 ---@param api_key string
----@reutrns project[]
+---@reutrn project[]
 function api.get_projects(api_key)
   local projects = Job:new({
     command = "curl",
@@ -110,10 +110,31 @@ function api.get_project_by_id(api_key, project_id)
 end
 
 ---@param api_key string
----@param todo_name string
----@param project_id? number
----@param due_date? string
-function api.create_task(api_key, todo_name, project_id, due_date)
+function api.create_task(api_key)
+  local new_todo = vim.fn.input("New Todo Name: ")
+  local porjects = api.get_projects(api_key)
+  local project_names = {}
+
+  for idx, project in ipairs(porjects) do
+    table.insert(project_names, idx .. ". " .. project.name)
+  end
+
+  local project_selcected = tonumber(vim.fn.inputlist(project_names))
+  local project_to_add = porjects[project_selcected]
+
+  local due_date = vim.fn.input("Do you want to asign a due date? (y/n): ")
+
+  if due_date == "y" then
+    due_date = vim.fn.input("Enter the due date in natuarl language: ")
+  elseif due_date == "n" then
+    due_date = ""
+  end
+
+  Job:new({
+    command = "curl",
+    args = { "-X", "POST", api.base_url .. "/tasks", "-H", "Authorization : Bearer " .. api_key, "-d",
+      "content=" .. new_todo, "-d", "project_id=" .. project_to_add.id, "-d", "due_string=" .. due_date },
+  }):sync()
 end
 
 return api
