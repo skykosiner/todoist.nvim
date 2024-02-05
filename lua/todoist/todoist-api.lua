@@ -26,53 +26,95 @@ curl.get("https://api.todoist.com/rest/v2/projects", {
 
 ---@class api
 ---@field base_url string
----@field get_projects fun(api_key: string): project[]
----@field get_active_todos fun(api_key: string): todo[]
----@field get_todays_todo fun(api_key: string): todo[]
----@field complete_task fun(api_key: string, todo_name: string)
----@field get_project_by_id fun(api_key: string, project_id: number): project | nil
----@field create_task fun(api_key: string)
-local api = {
-  base_url = "https://api.todoist.com/rest/v2"
-}
+---@field todos todo[] | nil
+---@field projects project[] | nil
+---@field update_time integer | nil
+---@field update_values fun(self: api, api_key: string)
+---@field get_projects fun(self: api, api_key: string): project[]
+---@field get_active_todos fun(self: api, api_key: string): todo[]
+---@field get_todays_todo fun(self: api, api_key: string): todo[]
+---@field complete_task fun(self: api, api_key: string, todo_name: string)
+---@field get_project_by_id fun(self: api, api_key: string, project_id: number): project | nil
+---@field create_task fun(self: api, api_key: string)
+---@field view_porject fun(self: api, api_key: string): todo[]
+local api = {}
 
+api.__index = api
+
+---@reutrn @api
+function api:new()
+  local api = setmetatable({
+    base_url = "https://api.todoist.com/rest/v2",
+    todos = nil,
+    projects = nil,
+    update_time = nil
+  }, self)
+
+  return api
+end
+
+local new_api = api:new()
+
+---@param self api
+---@param api_key string
+function api.update_values(self, api_key)
+  if self.update_time ~= nil and os.time() - self.update_time < 300 then
+    return
+  elseif self.update_time == nil then
+    self.update_time = os.time()
+  else
+    self.projects = self:get_projects(api_key)
+    self.todo = self:get_active_todos(api_key)
+    self.update_time = os.time()
+  end
+end
+
+---@param self api
 ---@param api_key string
 ---@reutrn project[]
-function api.get_projects(api_key)
+function api.get_projects(self, api_key)
   local projects = Job:new({
     command = "curl",
-    args = { "-X", "GET", api.base_url .. "/projects", "-H", "Authorization: Bearer " .. api_key },
+    args = { "-X", "GET", self.base_url .. "/projects", "-H", "Authorization: Bearer " .. api_key },
     on_exit = function(j, _)
       return j:result()
     end
   }):sync()
 
+  self.projects = vim.fn.json_decode(projects)
+
   return vim.fn.json_decode(projects)
 end
 
+---@param self api
 ---@param api_key string
 ---@return todo[]
-function api.get_active_todos(api_key)
+function api.get_active_todos(self, api_key)
   local projects = Job:new({
     command = "curl",
-    args = { "-X", "GET", api.base_url .. "/tasks", "-H", "Authorization: Bearer " .. api_key },
+    args = { "-X", "GET", self.base_url .. "/tasks", "-H", "Authorization: Bearer " .. api_key },
     on_exit = function(j, return_val)
       return j:result()
     end
   }):sync()
 
+  self.todos = vim.fn.json_decode(projects)
+
   return vim.fn.json_decode(projects)
 end
 
+---@param self api
 ---@param api_key string
 ---@returns todo[]
-function api.get_todays_todo(api_key)
+function api.get_todays_todo(self, api_key)
+  self:update_values(api_key)
+
   ---@type todo[]
   local today_todays = {}
 
   local projects = Job:new({
     command = "curl",
-    args = { "-X", "GET", api.base_url .. "/tasks", "-H", "Authorization: Bearer " .. api_key },
+    args = { "-X", "GET", self.base_url .. "/tasks", "-H", "Authorization: Bearer " .. api_key },
     on_exit = function(j, _)
       return j:result()
     end
@@ -96,28 +138,34 @@ function api.get_todays_todo(api_key)
   return today_todays
 end
 
+---@param self api
 ---@param api_key string
 ---@param todo_name string
-function api.complete_task(api_key, todo_name)
+function api.complete_task(self, api_key, todo_name)
+  self:update_values(api_key)
+
   todo_name = utils.get_todo_to_complete(todo_name)
 
-  local todos = api.get_active_todos(api_key)
+  local todos = self.todos or self:get_active_todos(api_key)
   for _, todo in ipairs(todos) do
     if todo.content == todo_name then
       Job:new({
         command = "curl",
-        args = { "-X", "POST", api.base_url .. "/tasks/" .. todo.id .. "/close", "-H",
+        args = { "-X", "POST", self.base_url .. "/tasks/" .. todo.id .. "/close", "-H",
           "Authorization: Bearer " .. api_key },
       }):sync()
     end
   end
 end
 
+---@param self api
 ---@param api_key string
 ---@param project_id number
 ---@return project | nil
-function api.get_project_by_id(api_key, project_id)
-  local projects = api.get_projects(api_key)
+function api.get_project_by_id(self, api_key, project_id)
+  self:update_values(api_key)
+
+  local projects = self.projects or self:get_projects(api_key)
 
   for _, project in ipairs(projects) do
     if project.id == project_id then
@@ -128,10 +176,13 @@ function api.get_project_by_id(api_key, project_id)
   return nil
 end
 
+---@param self api
 ---@param api_key string
-function api.create_task(api_key)
+function api.create_task(self, api_key)
+  self:update_values(api_key)
+
   local new_todo = vim.fn.input("New Todo Name: ")
-  local porjects = api.get_projects(api_key)
+  local porjects = self.projects or self:get_projects(api_key)
   local project_names = {}
 
   for idx, project in ipairs(porjects) do
@@ -151,16 +202,22 @@ function api.create_task(api_key)
 
   Job:new({
     command = "curl",
-    args = { "-X", "POST", api.base_url .. "/tasks", "-H", "Authorization : Bearer " .. api_key, "-d",
+    args = { "-X", "POST", self.base_url .. "/tasks", "-H", "Authorization : Bearer " .. api_key, "-d",
       "content=" .. new_todo, "-d", "project_id=" .. project_to_add.id, "-d", "due_string=" .. due_date },
   }):sync()
+
+  -- Update the todo table
+  self.todos = self:get_active_todos(api_key)
 end
 
+---@param self api
 ---@param api_key string
 ---@return todo[]
-function api.view_porject(api_key)
+function api.view_porject(self, api_key)
+  self:update_values(api_key)
+
   local return_todo = {}
-  local projects = api.get_projects(api_key)
+  local projects = self.projects or self:get_projects(api_key)
   local project_names = {}
 
   for idx, project in ipairs(projects) do
@@ -169,7 +226,7 @@ function api.view_porject(api_key)
 
   local project_selcected = tonumber(vim.fn.inputlist(project_names))
   local project_to_view = projects[project_selcected]
-  local todos = api.get_active_todos(api_key)
+  local todos = self.todos or self:get_active_todos(api_key)
 
   for _, todo in ipairs(todos) do
     if todo.project_id == project_to_view.id then
@@ -180,4 +237,4 @@ function api.view_porject(api_key)
   return return_todo
 end
 
-return api
+return new_api
