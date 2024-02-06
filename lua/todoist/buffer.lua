@@ -14,8 +14,6 @@ function M.create_floating_window_todos(api_key, tasks, project_view)
   local lines = 0
   local lineNum = 1
 
-  vim.g.api_key = api_key
-
   for _, todo in ipairs(tasks) do
     local todo_porject = api:get_project_by_id(api_key, todo.project_id)
     if project_view then
@@ -46,13 +44,13 @@ function M.create_floating_window_todos(api_key, tasks, project_view)
 
   -- TODO: move cursor to the second column to avoid the checkbox
 
-  -- Close window with q
-  vim.api.nvim_buf_set_keymap(buf, "n", "q", ":q<CR>", { noremap = true, silent = true })
+  vim.keymap.set("n", "q", ":q<CR>", { buffer = buf })
 
   -- TODO: Refresh the buffer after a task is completed
-  vim.api.nvim_buf_set_keymap(buf, "n", "<CR>",
-    ":lua require('todoist.todoist-api').complete_task(vim.g.api_key, vim.fn.getline('.'))<CR>",
-    { noremap = true, silent = true })
+
+  vim.keymap.set("n", "<CR>", function()
+    api:complete_task(api_key, vim.fn.getline("."))
+  end, { buffer = buf })
 end
 
 return M

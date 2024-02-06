@@ -43,14 +43,14 @@ api.__index = api
 
 ---@reutrn @api
 function api:new()
-  local api = setmetatable({
+  local new_api = setmetatable({
     base_url = "https://api.todoist.com/rest/v2",
     todos = nil,
     projects = nil,
     update_time = nil
   }, self)
 
-  return api
+  return new_api
 end
 
 local new_api = api:new()
@@ -93,7 +93,7 @@ function api.get_active_todos(self, api_key)
   local projects = Job:new({
     command = "curl",
     args = { "-X", "GET", self.base_url .. "/tasks", "-H", "Authorization: Bearer " .. api_key },
-    on_exit = function(j, return_val)
+    on_exit = function(j, _)
       return j:result()
     end
   }):sync()
@@ -105,7 +105,7 @@ end
 
 ---@param self api
 ---@param api_key string
----@returns todo[]
+---@return todo[]
 function api.get_todays_todo(self, api_key)
   self:update_values(api_key)
 
@@ -142,8 +142,6 @@ end
 ---@param api_key string
 ---@param todo_name string
 function api.complete_task(self, api_key, todo_name)
-  self:update_values(api_key)
-
   todo_name = utils.get_todo_to_complete(todo_name)
 
   local todos = self.todos or self:get_active_todos(api_key)
