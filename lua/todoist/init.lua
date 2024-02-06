@@ -30,11 +30,7 @@ local new_todoist = Todoist:new()
 ---@param config TodoistConfig
 ---@return Todoist
 function Todoist.setup(self, config)
-  if self ~= new_todoist then
-    self = new_todoist
-  end
-
-  self.config.api_key = config.api_key
+  self.config = config
 
   return self
 end

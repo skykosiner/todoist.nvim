@@ -15,10 +15,10 @@ function M.create_floating_window_todos(api_key, tasks, project_view)
   local lineNum = 1
 
   for _, todo in ipairs(tasks) do
-    local todo_porject = api:get_project_by_id(api_key, todo.project_id)
     if project_view then
       vim.api.nvim_buf_set_lines(buf, lines, -1, true, { "☐ " .. todo.content })
-    elseif todo_porject ~= nil then
+    else
+      local todo_porject = api:get_project_by_id(api_key, todo.project_id)
       vim.api.nvim_buf_set_lines(buf, lines, -1, true,
         { "☐ " .. todo.content .. " - " .. todo.due.date .. " - " .. todo_porject.name })
     end

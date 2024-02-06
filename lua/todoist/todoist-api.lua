@@ -1,12 +1,7 @@
 local Job = require "plenary.job"
 local utils = require "todoist.utils"
---[[ local curl = require "plenary.curl"
+local curl = require "plenary.curl"
 
-curl.get("https://api.todoist.com/rest/v2/projects", {
-  headers = {
-    Authorization = "Bearer " .. api_key
-  },
-}) ]]
 ---@class due_date
 ---@field date string
 ---@field is_recurring boolean
@@ -73,34 +68,30 @@ end
 ---@param api_key string
 ---@reutrn project[]
 function api.get_projects(self, api_key)
-  local projects = Job:new({
-    command = "curl",
-    args = { "-X", "GET", self.base_url .. "/projects", "-H", "Authorization: Bearer " .. api_key },
-    on_exit = function(j, _)
-      return j:result()
-    end
-  }):sync()
+  local res = curl.get(self.base_url .. "/projects", {
+    headers = {
+      Authorization = "Bearer " .. api_key
+    }
+  })
 
-  self.projects = vim.fn.json_decode(projects)
-
-  return vim.fn.json_decode(projects)
+  local projects = vim.fn.json_decode(res.body)
+  self.projects = projects
+  return projects
 end
 
 ---@param self api
 ---@param api_key string
 ---@return todo[]
 function api.get_active_todos(self, api_key)
-  local projects = Job:new({
-    command = "curl",
-    args = { "-X", "GET", self.base_url .. "/tasks", "-H", "Authorization: Bearer " .. api_key },
-    on_exit = function(j, _)
-      return j:result()
-    end
-  }):sync()
+  local res = curl.get(self.base_url .. "/tasks", {
+    headers = {
+      Authorization = "Bearer " .. api_key
+    }
+  })
 
-  self.todos = vim.fn.json_decode(projects)
-
-  return vim.fn.json_decode(projects)
+  local todos = vim.fn.json_decode(res.body)
+  self.todos = todos
+  return todos
 end
 
 ---@param self api
@@ -108,20 +99,9 @@ end
 ---@return todo[]
 function api.get_todays_todo(self, api_key)
   self:update_values(api_key)
-
   ---@type todo[]
   local today_todays = {}
-
-  local projects = Job:new({
-    command = "curl",
-    args = { "-X", "GET", self.base_url .. "/tasks", "-H", "Authorization: Bearer " .. api_key },
-    on_exit = function(j, _)
-      return j:result()
-    end
-  }):sync()
-
-  ---@type todo[]
-  local todos = vim.fn.json_decode(projects)
+  local todos = self.todos or self:get_active_todos(api_key)
 
   for _, todo in ipairs(todos) do
     if todo.due ~= vim.NIL then
@@ -147,11 +127,11 @@ function api.complete_task(self, api_key, todo_name)
   local todos = self.todos or self:get_active_todos(api_key)
   for _, todo in ipairs(todos) do
     if todo.content == todo_name then
-      Job:new({
-        command = "curl",
-        args = { "-X", "POST", self.base_url .. "/tasks/" .. todo.id .. "/close", "-H",
-          "Authorization: Bearer " .. api_key },
-      }):sync()
+      curl.post(self.base_url .. "/tasks/" .. todo.id .. "/close", {
+        headers = {
+          Authorization = "Bearer " .. api_key
+        }
+      })
     end
   end
 end
@@ -198,11 +178,22 @@ function api.create_task(self, api_key)
     due_date = ""
   end
 
-  Job:new({
+  --[[ Job:new({
     command = "curl",
     args = { "-X", "POST", self.base_url .. "/tasks", "-H", "Authorization : Bearer " .. api_key, "-d",
       "content=" .. new_todo, "-d", "project_id=" .. project_to_add.id, "-d", "due_string=" .. due_date },
-  }):sync()
+  }):sync() ]]
+  curl.post(self.base_url .. "/tasks", {
+    headers = {
+      Authorization = "Bearer " .. api_key
+    },
+    body = {
+      content = new_todo,
+      project_id = project_to_add.id,
+      due_string = due_date
+    }
+  })
+
 
   -- Update the todo table
   self.todos = self:get_active_todos(api_key)
