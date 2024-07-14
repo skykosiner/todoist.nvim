@@ -37,14 +37,14 @@ end
 
 ---@param self Todoist
 function Todoist.today(self)
-  local todos = api:get_todays_todo(self.config.api_key)
-  buffer.create_floating_window_todos(self.config.api_key, todos, false)
+  local todos = api:get_todays_todo(self.config.api_key, false)
+  buffer.create_floating_window_todos(self.config.api_key, todos)
 end
 
 ---@param self Todoist
 function Todoist.view_project(self)
   local todos = api:view_porject(self.config.api_key)
-  buffer.create_floating_window_todos(self.config.api_key, todos, true)
+  buffer.create_floating_window_todos(self.config.api_key, todos)
 end
 
 ---@param self Todoist

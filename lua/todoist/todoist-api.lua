@@ -1,4 +1,3 @@
-local Job = require "plenary.job"
 local utils = require "todoist.utils"
 local curl = require "plenary.curl"
 
@@ -19,6 +18,11 @@ local curl = require "plenary.curl"
 ---@field id number
 ---@field name string
 
+---@class return_tasks
+---@field tasks todo[]
+---@field project boolean
+---@field project_id string | nil
+
 ---@class api
 ---@field base_url string
 ---@field todos todo[] | nil
@@ -27,11 +31,11 @@ local curl = require "plenary.curl"
 ---@field update_values fun(self: api, api_key: string)
 ---@field get_projects fun(self: api, api_key: string): project[]
 ---@field get_active_todos fun(self: api, api_key: string): todo[]
----@field get_todays_todo fun(self: api, api_key: string): todo[]
+---@field get_todays_todo fun(self: api, api_key: string, force: boolean): return_tasks
 ---@field complete_task fun(self: api, api_key: string, todo_name: string)
 ---@field get_project_by_id fun(self: api, api_key: string, project_id: number): project | nil
 ---@field create_task fun(self: api, api_key: string)
----@field view_porject fun(self: api, api_key: string): todo[]
+---@field view_porject fun(self: api, api_key: string): return_tasks
 local api = {}
 
 api.__index = api
@@ -96,12 +100,19 @@ end
 
 ---@param self api
 ---@param api_key string
----@return todo[]
-function api.get_todays_todo(self, api_key)
+---@param force boolean
+---@return return_tasks
+function api.get_todays_todo(self, api_key, force)
   self:update_values(api_key)
   ---@type todo[]
   local today_todays = {}
-  local todos = self.todos or self:get_active_todos(api_key)
+  local todos
+  if force then
+    todos = self:get_active_todos(api_key)
+  else
+    todos = self.todos or self:get_active_todos(api_key)
+  end
+
 
   for _, todo in ipairs(todos) do
     if todo.due ~= vim.NIL then
@@ -115,7 +126,11 @@ function api.get_todays_todo(self, api_key)
     end
   end
 
-  return today_todays
+  return {
+    tasks = today_todays,
+    project = false,
+    project_id = nil
+  }
 end
 
 ---@param self api
@@ -178,11 +193,6 @@ function api.create_task(self, api_key)
     due_date = ""
   end
 
-  --[[ Job:new({
-    command = "curl",
-    args = { "-X", "POST", self.base_url .. "/tasks", "-H", "Authorization : Bearer " .. api_key, "-d",
-      "content=" .. new_todo, "-d", "project_id=" .. project_to_add.id, "-d", "due_string=" .. due_date },
-  }):sync() ]]
   curl.post(self.base_url .. "/tasks", {
     headers = {
       Authorization = "Bearer " .. api_key
@@ -201,7 +211,7 @@ end
 
 ---@param self api
 ---@param api_key string
----@return todo[]
+---@return return_tasks
 function api.view_porject(self, api_key)
   self:update_values(api_key)
 
@@ -223,7 +233,11 @@ function api.view_porject(self, api_key)
     end
   end
 
-  return return_todo
+  return {
+    tasks = return_todo,
+    project = true,
+    project_id = project_to_view
+  }
 end
 
 return new_api

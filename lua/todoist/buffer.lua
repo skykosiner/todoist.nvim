@@ -1,31 +1,53 @@
 local api = require "todoist.todoist-api"
 
 ---@class buffer
----@field create_floating_window_todos fun(api_key: string, tasks: todo[], project_view: boolean)
+---@field create_floating_window_todos fun(api_key: string, tasks: return_tasks)
 local M = {}
 
 ---@param api_key string
----@param tasks todo[]
----@param project_view boolean
-function M.create_floating_window_todos(api_key, tasks, project_view)
+---@param tasks return_tasks
+function M.create_floating_window_todos(api_key, tasks)
+  ---@param buf integer
+  ---@param todos todo[]
+  local function render_todos(buf, todos)
+    vim.opt_local.modifiable = true
+    local lines = {}
+
+    for _, todo in ipairs(todos) do
+      local line
+      if tasks.project then
+        line = "☐ " .. todo.content
+      else
+        local todo_porject = api:get_project_by_id(api_key, todo.project_id)
+
+        if todo_porject ~= nil then
+          line = "☐ " .. todo.content .. " - " .. todo.due.date .. " - " .. todo_porject.name
+        else
+          error("Your project name is nil" .. todo_porject .. todo.project_id)
+        end
+      end
+      table.insert(lines, line)
+    end
+
+    vim.api.nvim_buf_set_lines(buf, 0, -1, true, lines)
+    vim.opt_local.modifiable = false
+  end
+
+  ---@param buf integer
+  local function fetch_and_render_todos(buf)
+    if tasks.project then
+      render_todos(buf, api:get_projects_tasks(api_key))
+    else
+      local updated_tasks = api:get_todays_todo(api_key, true).tasks
+      render_todos(buf, updated_tasks)
+    end
+  end
+
   local height = 20
   local width = 90
   local buf = vim.api.nvim_create_buf(false, true)
-  local lines = 0
-  local lineNum = 1
 
-  for _, todo in ipairs(tasks) do
-    if project_view then
-      vim.api.nvim_buf_set_lines(buf, lines, -1, true, { "☐ " .. todo.content })
-    else
-      local todo_porject = api:get_project_by_id(api_key, todo.project_id)
-      vim.api.nvim_buf_set_lines(buf, lines, -1, true,
-        { "☐ " .. todo.content .. " - " .. todo.due.date .. " - " .. todo_porject.name })
-    end
-
-    lines = lines + 1
-    lineNum = lineNum + 1
-  end
+  render_todos(buf, tasks.tasks)
 
   local opts = {
     relative = "editor",
@@ -42,14 +64,13 @@ function M.create_floating_window_todos(api_key, tasks, project_view)
   vim.opt_local.relativenumber = false
   vim.opt_local.modifiable = false
 
-  -- TODO: move cursor to the second column to avoid the checkbox
-
   vim.keymap.set("n", "q", ":q<CR>", { buffer = buf })
 
   -- TODO: Refresh the buffer after a task is completed
 
   vim.keymap.set("n", "<CR>", function()
     api:complete_task(api_key, vim.fn.getline("."))
+    fetch_and_render_todos(buf)
   end, { buffer = buf })
 end
 
