@@ -27,7 +27,6 @@ local curl = require "plenary.curl"
 ---@field base_url string
 ---@field todos todo[] | nil
 ---@field projects project[] | nil
----@field update_time integer | nil
 ---@field update_values fun(self: api, api_key: string)
 ---@field get_projects fun(self: api, api_key: string): project[]
 ---@field get_active_todos fun(self: api, api_key: string): todo[]
@@ -47,9 +46,7 @@ function api:new()
     base_url = "https://api.todoist.com/rest/v2",
     todos = nil,
     projects = nil,
-    update_time = nil
   }, self)
-
   return new_api
 end
 
@@ -58,15 +55,8 @@ local new_api = api:new()
 ---@param self api
 ---@param api_key string
 function api.update_values(self, api_key)
-  if self.update_time ~= nil and os.time() - self.update_time < 300 then
-    return
-  elseif self.update_time == nil then
-    self.update_time = os.time()
-  else
-    self.projects = self:get_projects(api_key)
-    self.todo = self:get_active_todos(api_key)
-    self.update_time = os.time()
-  end
+  self.projects = self:get_projects(api_key)
+  self.todo = self:get_active_todos(api_key)
 end
 
 ---@param self api
@@ -104,7 +94,6 @@ end
 ---@param force boolean
 ---@return return_tasks
 function api.get_todays_todo(self, api_key, force)
-  self:update_values(api_key)
   ---@type todo[]
   local today_todays = {}
   local todos
@@ -157,8 +146,6 @@ end
 ---@param project_id number
 ---@return project | nil
 function api.get_project_by_id(self, api_key, project_id)
-  self:update_values(api_key)
-
   local projects = self.projects or self:get_projects(api_key)
 
   for _, project in ipairs(projects) do
@@ -173,8 +160,6 @@ end
 ---@param self api
 ---@param api_key string
 function api.create_task(self, api_key)
-  self:update_values(api_key)
-
   local new_todo = vim.fn.input("New Todo Name: ")
   local porjects = self.projects or self:get_projects(api_key)
   local project_names = {}
@@ -214,8 +199,6 @@ end
 ---@param api_key string
 ---@return return_tasks
 function api.view_porject(self, api_key)
-  self:update_values(api_key)
-
   local return_todo = {}
   local projects = self.projects or self:get_projects(api_key)
   local project_names = {}

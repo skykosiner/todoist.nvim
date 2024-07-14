@@ -52,4 +52,12 @@ function Todoist.create_task(self)
   api:create_task(self.config.api_key)
 end
 
+-- Start a vim timer to update the todo's every 5 minutes in the background
+local timer = vim.loop.new_timer()
+timer:start(0, 300000, function()
+  vim.schedule(function()
+    api:update_values(new_todoist.config.api_key)
+  end)
+end)
+
 return new_todoist
