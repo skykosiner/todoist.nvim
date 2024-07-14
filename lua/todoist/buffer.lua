@@ -36,10 +36,9 @@ function M.create_floating_window_todos(api_key, tasks)
   ---@param buf integer
   local function fetch_and_render_todos(buf)
     if tasks.project then
-      render_todos(buf, api:get_projects_tasks(api_key))
+      render_todos(buf, api:get_projects_tasks(api_key, tasks.project_id).tasks)
     else
-      local updated_tasks = api:get_todays_todo(api_key, true).tasks
-      render_todos(buf, updated_tasks)
+      render_todos(buf, api:get_todays_todo(api_key, true).tasks)
     end
   end
 

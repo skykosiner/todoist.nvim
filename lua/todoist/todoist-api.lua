@@ -36,6 +36,7 @@ local curl = require "plenary.curl"
 ---@field get_project_by_id fun(self: api, api_key: string, project_id: number): project | nil
 ---@field create_task fun(self: api, api_key: string)
 ---@field view_porject fun(self: api, api_key: string): return_tasks
+---@field get_projects_tasks fun(self: api, api_key: string, project_id: string | nil): return_tasks
 local api = {}
 
 api.__index = api
@@ -236,7 +237,32 @@ function api.view_porject(self, api_key)
   return {
     tasks = return_todo,
     project = true,
-    project_id = project_to_view
+    project_id = project_to_view.id
+  }
+end
+
+---@param self api
+---@param api_key string
+---@param project_id string | nil
+---@return return_tasks
+function api.get_projects_tasks(self, api_key, project_id)
+  local todos = self:get_active_todos(api_key)
+  local todos_return = {}
+
+  if project_id == nil then
+    error("Project id is nil when calling api:get_projects_tasks")
+  end
+
+  for _, todo in ipairs(todos) do
+    if todo.project_id == project_id then
+      table.insert(todos_return, todo)
+    end
+  end
+
+  return {
+    tasks = todos_return,
+    project = true,
+    project_id = project_id
   }
 end
 
