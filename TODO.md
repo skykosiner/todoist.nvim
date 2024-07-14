@@ -1,1 +1,0 @@
-- [ ] Use plenary's built-in curl function instead of opening a new shell process to call curl with plenary

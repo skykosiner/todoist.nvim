@@ -3,6 +3,9 @@ There are quite a few Todoist plugins for Neovim but none of them seemed to
 work well for me, so I built this one my self. It's still a work in progress
 and doesn't have the best code. Feel free to open a pr :)
 
+* There is a timer running in the background that will use vim.timer and
+vim.schedule to update the todo's every 5 minutes
+
 ## Installation
 ### Lazy
 ```lua
