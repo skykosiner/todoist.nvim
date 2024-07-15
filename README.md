@@ -6,6 +6,10 @@ and doesn't have the best code. Feel free to open a pr :)
 * There is a timer running in the background that will use vim.timer and
 vim.schedule to update the todo's every 5 minutes
 
+## TODO
+- [ ] Run the update tasks in the background without the current neovim
+experince freezing for a few seconds
+
 ## Installation
 ### Lazy
 ```lua
@@ -26,6 +30,11 @@ local todoist_api_key = os.getenv("TODOIST_API_TOKEN")
 local todoist = require("todoist")
 todoist:setup({
     api_key = todoist_api_key,
+
+    -- This update_time value is how often your to do list will be updated in
+    -- the background by calling the api. It's based in ms, and by default is
+    -- run every 5 minutes.
+    update_time = 69420,
 })
 ```
 

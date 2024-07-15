@@ -3,6 +3,7 @@ local buffer = require "todoist.buffer"
 
 ---@class TodoistConfig
 ---@field api_key string
+---@field update_time integer
 
 ---@class Todoist
 ---@field config TodoistConfig
@@ -18,6 +19,7 @@ function Todoist:new()
   local todoist = setmetatable({
     config = {
       api_key = "",
+      update_time = 300000,
     },
   }, self)
 
@@ -54,8 +56,9 @@ end
 
 -- Start a vim timer to update the todo's every 5 minutes in the background
 local timer = vim.loop.new_timer()
-timer:start(0, 300000, function()
+timer:start(0, new_todoist.config.update_time, function()
   vim.schedule(function()
+    print("updating values", os.date())
     api:update_values(new_todoist.config.api_key)
   end)
 end)
