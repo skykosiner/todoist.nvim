@@ -1,5 +1,6 @@
 local utils = require "todoist.utils"
 local curl = require "plenary.curl"
+local Job = require "plenary.job"
 
 ---@class due_date
 ---@field date string
@@ -42,12 +43,12 @@ api.__index = api
 
 ---@reutrn @api
 function api:new()
-  local new_api = setmetatable({
-    base_url = "https://api.todoist.com/rest/v2",
-    todos = nil,
-    projects = nil,
-  }, self)
-  return new_api
+    local new_api = setmetatable({
+        base_url = "https://api.todoist.com/rest/v2",
+        todos = nil,
+        projects = nil,
+    }, self)
+    return new_api
 end
 
 local new_api = api:new()
@@ -55,38 +56,50 @@ local new_api = api:new()
 ---@param self api
 ---@param api_key string
 function api.update_values(self, api_key)
-  self.projects = self:get_projects(api_key)
-  self.todo = self:get_active_todos(api_key)
+    self:get_projects(api_key)
+    self:get_active_todos(api_key)
 end
 
 ---@param self api
 ---@param api_key string
 ---@reutrn project[]
 function api.get_projects(self, api_key)
-  local res = curl.get(self.base_url .. "/projects", {
-    headers = {
-      Authorization = "Bearer " .. api_key
-    }
-  })
-
-  local projects = vim.fn.json_decode(res.body)
-  self.projects = projects
-  return projects
+    Job:new({
+        command = "curl",
+        args = {
+            "-s",
+            "-H", "Authorization: Bearer " .. api_key,
+            self.base_url .. "/projects",
+        },
+        on_exit = function(j, return_val)
+            local raw = j:result()
+            vim.schedule(function()
+                local decoded = vim.fn.json_decode(table.concat(raw, "\n"))
+                self.projects = decoded
+            end)
+        end,
+    }):start()
 end
 
 ---@param self api
 ---@param api_key string
 ---@return todo[]
 function api.get_active_todos(self, api_key)
-  local res = curl.get(self.base_url .. "/tasks", {
-    headers = {
-      Authorization = "Bearer " .. api_key
-    }
-  })
-
-  local todos = vim.fn.json_decode(res.body)
-  self.todos = todos
-  return todos
+    Job:new({
+        command = "curl",
+        args = {
+            "-s",
+            "-H", "Authorization: Bearer " .. api_key,
+            self.base_url .. "/tasks",
+        },
+        on_exit = function(j, return_val)
+            local raw = j:result()
+            vim.schedule(function()
+                local decoded = vim.fn.json_decode(table.concat(raw, "\n"))
+                self.todos = decoded
+            end)
+        end,
+    }):start()
 end
 
 ---@param self api
@@ -94,51 +107,51 @@ end
 ---@param force boolean
 ---@return return_tasks
 function api.get_todays_todo(self, api_key, force)
-  ---@type todo[]
-  local today_todays = {}
-  local todos
-  if force then
-    todos = self:get_active_todos(api_key)
-  else
-    todos = self.todos or self:get_active_todos(api_key)
-  end
-
-
-  for _, todo in ipairs(todos) do
-    if todo.due ~= vim.NIL then
-      local date = os.date("%Y-%m-%d")
-      -- Add the todo's to the list if it's due today or overdue
-      if todo.due.date == date then
-        table.insert(today_todays, todo)
-      elseif todo.is_completed == false and todo.due.date < date then
-        table.insert(today_todays, todo)
-      end
+    ---@type todo[]
+    local today_todays = {}
+    local todos
+    if force then
+        todos = self:get_active_todos(api_key)
+    else
+        todos = self.todos or self:get_active_todos(api_key)
     end
-  end
 
-  return {
-    tasks = today_todays,
-    project = false,
-    project_id = nil
-  }
+
+    for _, todo in ipairs(todos) do
+        if todo.due ~= vim.NIL then
+            local date = os.date("%Y-%m-%d")
+            -- Add the todo's to the list if it's due today or overdue
+            if todo.due.date == date then
+                table.insert(today_todays, todo)
+            elseif todo.is_completed == false and todo.due.date < date then
+                table.insert(today_todays, todo)
+            end
+        end
+    end
+
+    return {
+        tasks = today_todays,
+        project = false,
+        project_id = nil
+    }
 end
 
 ---@param self api
 ---@param api_key string
 ---@param todo_name string
 function api.complete_task(self, api_key, todo_name)
-  todo_name = utils.get_todo_to_complete(todo_name)
+    todo_name = utils.get_todo_to_complete(todo_name)
 
-  local todos = self.todos or self:get_active_todos(api_key)
-  for _, todo in ipairs(todos) do
-    if todo.content == todo_name then
-      curl.post(self.base_url .. "/tasks/" .. todo.id .. "/close", {
-        headers = {
-          Authorization = "Bearer " .. api_key
-        }
-      })
+    local todos = self.todos or self:get_active_todos(api_key)
+    for _, todo in ipairs(todos) do
+        if todo.content == todo_name then
+            curl.post(self.base_url .. "/tasks/" .. todo.id .. "/close", {
+                headers = {
+                    Authorization = "Bearer " .. api_key
+                }
+            })
+        end
     end
-  end
 end
 
 ---@param self api
@@ -146,82 +159,82 @@ end
 ---@param project_id number
 ---@return project | nil
 function api.get_project_by_id(self, api_key, project_id)
-  local projects = self.projects or self:get_projects(api_key)
+    local projects = self.projects or self:get_projects(api_key)
 
-  for _, project in ipairs(projects) do
-    if project.id == project_id then
-      return project
+    for _, project in ipairs(projects) do
+        if project.id == project_id then
+            return project
+        end
     end
-  end
 
-  return nil
+    return nil
 end
 
 ---@param self api
 ---@param api_key string
 function api.create_task(self, api_key)
-  local new_todo = vim.fn.input("New Todo Name: ")
-  local porjects = self.projects or self:get_projects(api_key)
-  local project_names = {}
+    local new_todo = vim.fn.input("New Todo Name: ")
+    local porjects = self.projects or self:get_projects(api_key)
+    local project_names = {}
 
-  for idx, project in ipairs(porjects) do
-    table.insert(project_names, idx .. ". " .. project.name)
-  end
+    for idx, project in ipairs(porjects) do
+        table.insert(project_names, idx .. ". " .. project.name)
+    end
 
-  local project_selcected = tonumber(vim.fn.inputlist(project_names))
-  local project_to_add = porjects[project_selcected]
+    local project_selcected = tonumber(vim.fn.inputlist(project_names))
+    local project_to_add = porjects[project_selcected]
 
-  local due_date = vim.fn.input("Do you want to asign a due date? (y/n): ")
+    local due_date = vim.fn.input("Do you want to asign a due date? (y/n): ")
 
-  if due_date == "y" then
-    due_date = vim.fn.input("Enter the due date in natuarl language: ")
-  elseif due_date == "n" then
-    due_date = ""
-  end
+    if due_date == "y" then
+        due_date = vim.fn.input("Enter the due date in natuarl language: ")
+    elseif due_date == "n" then
+        due_date = ""
+    end
 
-  curl.post(self.base_url .. "/tasks", {
-    headers = {
-      Authorization = "Bearer " .. api_key
-    },
-    body = {
-      content = new_todo,
-      project_id = project_to_add.id,
-      due_string = due_date
-    }
-  })
+    curl.post(self.base_url .. "/tasks", {
+        headers = {
+            Authorization = "Bearer " .. api_key
+        },
+        body = {
+            content = new_todo,
+            project_id = project_to_add.id,
+            due_string = due_date
+        }
+    })
 
 
-  -- Update the todo table
-  self.todos = self:get_active_todos(api_key)
+    -- Update the todo table
+    self.todos = self:get_active_todos(api_key)
 end
 
 ---@param self api
 ---@param api_key string
 ---@return return_tasks
 function api.view_porject(self, api_key)
-  local return_todo = {}
-  local projects = self.projects or self:get_projects(api_key)
-  local project_names = {}
+    local return_todo = {}
+    local projects = self.projects or self:get_projects(api_key)
+    local project_names = {}
 
-  for idx, project in ipairs(projects) do
-    table.insert(project_names, idx .. ". " .. project.name)
-  end
-
-  local project_selcected = tonumber(vim.fn.inputlist(project_names))
-  local project_to_view = projects[project_selcected]
-  local todos = self.todos or self:get_active_todos(api_key)
-
-  for _, todo in ipairs(todos) do
-    if todo.project_id == project_to_view.id then
-      table.insert(return_todo, todo)
+    for idx, project in ipairs(projects) do
+        table.insert(project_names, idx .. ". " .. project.name)
     end
-  end
 
-  return {
-    tasks = return_todo,
-    project = true,
-    project_id = project_to_view.id
-  }
+    local project_selcected = tonumber(vim.fn.inputlist(project_names))
+    local project_to_view = projects[project_selcected]
+    local todos = self.todos or self:get_active_todos(api_key)
+
+    for _, todo in ipairs(todos) do
+        if todo.project_id == project_to_view.id then
+            table.insert(return_todo, todo)
+        end
+    end
+
+    return {
+        tasks = return_todo,
+        project = true,
+        project_id = project_to_view.id
+    }
 end
 
 ---@param self api
@@ -229,24 +242,24 @@ end
 ---@param project_id string | nil
 ---@return return_tasks
 function api.get_projects_tasks(self, api_key, project_id)
-  local todos = self:get_active_todos(api_key)
-  local todos_return = {}
+    local todos = self:get_active_todos(api_key)
+    local todos_return = {}
 
-  if project_id == nil then
-    error("Project id is nil when calling api:get_projects_tasks")
-  end
-
-  for _, todo in ipairs(todos) do
-    if todo.project_id == project_id then
-      table.insert(todos_return, todo)
+    if project_id == nil then
+        error("Project id is nil when calling api:get_projects_tasks")
     end
-  end
 
-  return {
-    tasks = todos_return,
-    project = true,
-    project_id = project_id
-  }
+    for _, todo in ipairs(todos) do
+        if todo.project_id == project_id then
+            table.insert(todos_return, todo)
+        end
+    end
+
+    return {
+        tasks = todos_return,
+        project = true,
+        project_id = project_id
+    }
 end
 
 return new_api
