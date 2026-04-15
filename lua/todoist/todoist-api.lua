@@ -23,6 +23,7 @@ local Job = require "plenary.job"
 ---@field tasks todo[]
 ---@field project boolean
 ---@field project_id string | nil
+---@field error string | nil
 
 ---@class api
 ---@field base_url string
@@ -44,7 +45,7 @@ api.__index = api
 ---@reutrn @api
 function api:new()
     local new_api = setmetatable({
-        base_url = "https://api.todoist.com/rest/v2",
+        base_url = "https://api.todoist.com/api/v1",
         todos = nil,
         projects = nil,
     }, self)
@@ -74,8 +75,11 @@ function api.get_projects(self, api_key)
         on_exit = function(j, return_val)
             local raw = j:result()
             vim.schedule(function()
-                local decoded = vim.fn.json_decode(table.concat(raw, "\n"))
-                self.projects = decoded
+                dataString = table.concat(raw, "\n")
+                if dataString ~= "" then
+                    local decoded = vim.json.decode(dataString)["results"]
+                    self.projects = decoded
+                end
             end)
         end,
     }):start()
@@ -95,8 +99,11 @@ function api.get_active_todos(self, api_key)
         on_exit = function(j, return_val)
             local raw = j:result()
             vim.schedule(function()
-                local decoded = vim.fn.json_decode(table.concat(raw, "\n"))
-                self.todos = decoded
+                dataString = table.concat(raw, "\n")
+                if dataString ~= "" then
+                    local decoded = vim.fn.json_decode(dataString)
+                    self.todos = decoded
+                end
             end)
         end,
     }):start()
@@ -109,31 +116,40 @@ end
 function api.get_todays_todo(self, api_key, force)
     ---@type todo[]
     local today_todays = {}
-    local todos
+    local todos = {}
     if force then
         todos = self:get_active_todos(api_key)
     else
         todos = self.todos or self:get_active_todos(api_key)
     end
 
-
-    for _, todo in ipairs(todos) do
-        if todo.due ~= vim.NIL then
-            local date = os.date("%Y-%m-%d")
-            -- Add the todo's to the list if it's due today or overdue
-            if todo.due.date == date then
-                table.insert(today_todays, todo)
-            elseif todo.is_completed == false and todo.due.date < date then
-                table.insert(today_todays, todo)
+    if todos ~= nil then
+        for _, todo in ipairs(todos) do
+            if todo.due ~= vim.NIL then
+                local date = os.date("%Y-%m-%d")
+                -- Add the todo's to the list if it's due today or overdue
+                if todo.due.date == date then
+                    table.insert(today_todays, todo)
+                elseif todo.is_completed == false and todo.due.date < date then
+                    table.insert(today_todays, todo)
+                end
             end
         end
-    end
 
-    return {
-        tasks = today_todays,
-        project = false,
-        project_id = nil
-    }
+        return {
+            tasks = today_todays,
+            project = false,
+            project_id = nil,
+            error = nil,
+        }
+    else
+        return {
+            tasks = {},
+            project = false,
+            project_id = nil,
+            error = "No Internet",
+        }
+    end
 end
 
 ---@param self api
@@ -216,25 +232,35 @@ function api.view_porject(self, api_key)
     local projects = self.projects or self:get_projects(api_key)
     local project_names = {}
 
-    for idx, project in ipairs(projects) do
-        table.insert(project_names, idx .. ". " .. project.name)
-    end
-
-    local project_selcected = tonumber(vim.fn.inputlist(project_names))
-    local project_to_view = projects[project_selcected]
-    local todos = self.todos or self:get_active_todos(api_key)
-
-    for _, todo in ipairs(todos) do
-        if todo.project_id == project_to_view.id then
-            table.insert(return_todo, todo)
+    if projects ~= nil then
+        for idx, project in ipairs(projects) do
+            table.insert(project_names, idx .. ". " .. project.name)
         end
-    end
 
-    return {
-        tasks = return_todo,
-        project = true,
-        project_id = project_to_view.id
-    }
+        local project_selcected = tonumber(vim.fn.inputlist(project_names))
+        local project_to_view = projects[project_selcected]
+        local todos = self.todos or self:get_active_todos(api_key)
+
+        for _, todo in ipairs(todos) do
+            if todo.project_id == project_to_view.id then
+                table.insert(return_todo, todo)
+            end
+        end
+
+        return {
+            tasks = return_todo,
+            project = true,
+            project_id = project_to_view.id,
+            error = nil,
+        }
+    else
+        return {
+            tasks = return_todo,
+            project = true,
+            project_id = nil,
+            error = "No Internet",
+        }
+    end
 end
 
 ---@param self api
@@ -245,21 +271,31 @@ function api.get_projects_tasks(self, api_key, project_id)
     local todos = self:get_active_todos(api_key)
     local todos_return = {}
 
-    if project_id == nil then
-        error("Project id is nil when calling api:get_projects_tasks")
-    end
-
-    for _, todo in ipairs(todos) do
-        if todo.project_id == project_id then
-            table.insert(todos_return, todo)
+    if todos ~= nil then
+        if project_id == nil then
+            error("Project id is nil when calling api:get_projects_tasks")
         end
-    end
 
-    return {
-        tasks = todos_return,
-        project = true,
-        project_id = project_id
-    }
+        for _, todo in ipairs(todos) do
+            if todo.project_id == project_id then
+                table.insert(todos_return, todo)
+            end
+        end
+
+        return {
+            tasks = todos_return,
+            project = true,
+            project_id = project_id,
+            error = nil,
+        }
+    else
+        return {
+            tasks = todos_return,
+            project = true,
+            project_id = project_id,
+            error = "No Internet",
+        }
+    end
 end
 
 return new_api

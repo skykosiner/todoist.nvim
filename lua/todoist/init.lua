@@ -37,7 +37,6 @@ function Todoist.setup(self, config)
         new_todoist.config = config
     end
 
-
     return self
 end
 
