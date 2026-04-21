@@ -1,4 +1,8 @@
 # Todoist.nvim
+**Todoist recently changed the way their API works, I'm working on updating
+this plugin to use the new api on the `new-api` branch, but for now this plugin
+doesn't work until it's updated fully**
+
 There are quite a few Todoist plugins for Neovim but none of them seemed to
 work well for me, so I built this one my self. It's still a work in progress
 and doesn't have the best code. Feel free to open a pr :)
