@@ -1,6 +1,7 @@
 local utils = require "todoist.utils"
 local curl = require "plenary.curl"
 local Job = require "plenary.job"
+local async = require "plenary.async"
 
 ---@class due_date
 ---@field date string
@@ -89,24 +90,54 @@ end
 ---@param api_key string
 ---@return todo[]
 function api.get_active_todos(self, api_key)
-    Job:new({
-        command = "curl",
-        args = {
-            "-s",
-            "-H", "Authorization: Bearer " .. api_key,
-            self.base_url .. "/tasks",
-        },
-        on_exit = function(j, return_val)
-            local raw = j:result()
-            vim.schedule(function()
-                dataString = table.concat(raw, "\n")
-                if dataString ~= "" then
-                    local decoded = vim.fn.json_decode(dataString)
-                    self.todos = decoded
+    -- Wrap in async so the :sync() doesn't freeze the UI
+    async.run(function()
+        self.todos = {}
+        local current_cursor = nil
+        local has_next = true
+
+        while has_next do
+            local url = self.base_url .. "/tasks"
+            if current_cursor then
+                url = url .. "?cursor=" .. current_cursor
+            end
+
+            local job = Job:new({
+                command = "curl",
+                args = { "-s", "-H", "Authorization: Bearer " .. api_key, url },
+            })
+
+            -- Block the coroutine (NOT the UI) until the job finishes
+            job:sync()
+
+            local raw = job:result()
+            local data_string = table.concat(raw, "\n")
+
+            if data_string ~= "" then
+                local ok, decoded = pcall(vim.json.decode, data_string)
+
+                -- Jump to main thread to update data
+                async.util.scheduler()
+
+                if ok and decoded and decoded.results then
+                    -- Append items
+                    for _, item in ipairs(decoded.results) do
+                        table.insert(self.todos, item)
+                    end
+
+                    current_cursor = decoded.next_cursor
+                    has_next = current_cursor ~= nil and current_cursor ~= ""
+                else
+                    has_next = false
                 end
-            end)
-        end,
-    }):start()
+            else
+                has_next = false
+            end
+        end
+
+        async.util.scheduler()
+        print("Successfully loaded " .. #self.todos .. " todos.")
+    end, function() end)
 end
 
 ---@param self api
